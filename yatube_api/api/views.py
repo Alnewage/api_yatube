@@ -96,7 +96,7 @@ class CommentViewSet(viewsets.ModelViewSet):
             serializer (Serializer): Экземпляр сериализатора.
         """
         serializer.save(author=self.request.user,
-                        post_id=int(self.kwargs.get('post_id')))
+                        post_id=self.kwargs.get('post_id'),)
 
     def perform_update(self, serializer):
         """
@@ -112,7 +112,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         if serializer.instance.author != self.request.user:
             raise PermissionDenied('Изменение чужого контента запрещено!')
         serializer.save(author=self.request.user,
-                        post_id=int(self.kwargs.get('post_id')))
+                        post_id=self.kwargs.get('post_id'),)
 
     def perform_destroy(self, instance):
         """
