@@ -25,10 +25,10 @@ urlpatterns = [
     # /posts/{post_id}/
     # /groups/
     # /groups/{group_id}/
-    path('', include(router.urls)),
+    path('', include(router.urls),),
 
     # Этот роутер будет поддерживать маршруты для комментариев к постам:
     # /posts/{post_id}/comments/
     # /posts/{post_id}/comments/{comment_id}/
-    path('posts/<int:post_id>/', include(comment_router.urls)),
+    path('posts/<int:post_id>/', include(comment_router.urls),),
 ]
