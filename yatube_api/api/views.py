@@ -1,8 +1,10 @@
-from posts.models import Comment, Group, Post
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 
+from api.permissions import IsOwnerOrReadOnly
 from api.serializers import CommentSerializer, GroupSerializer, PostSerializer
+from posts.models import Group, Post
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -12,9 +14,16 @@ class PostViewSet(viewsets.ModelViewSet):
     Атрибуты:
         queryset (QuerySet): Запрос для получения всех объектов модели Post.
         serializer_class (Serializer): Сериализатор для модели Post.
+        permission_classes (tuple): Кортеж классов разрешений для управления
+        доступом к представлению.
+            По умолчанию используется (IsAuthenticated, IsOwnerOrReadOnly),
+            что означает, что пользователь должен быть аутентифицирован
+            и являться владельцем объекта, чтобы иметь доступ к
+            небезопасным методам.
     """
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+    permission_classes = (IsAuthenticated, IsOwnerOrReadOnly)
 
     def perform_create(self, serializer):
         """
@@ -33,12 +42,7 @@ class PostViewSet(viewsets.ModelViewSet):
         Аргументы:
             serializer (Serializer): Экземпляр сериализатора.
 
-        Исключения:
-            PermissionDenied: Если автор объекта не соответствует
-            текущему пользователю.
         """
-        if serializer.instance.author != self.request.user:
-            raise PermissionDenied('Изменение чужого контента запрещено!')
         serializer.save(author=self.request.user)
 
     def perform_destroy(self, instance):
@@ -47,13 +51,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
         Аргументы:
             instance (Model): Экземпляр модели Post.
-
-        Исключения:
-            PermissionDenied: Если автор объекта не соответствует
-            текущему пользователю.
         """
-        if instance.author != self.request.user:
-            raise PermissionDenied('Удаление чужого контента запрещено!')
         instance.delete()
 
 
@@ -76,17 +74,25 @@ class CommentViewSet(viewsets.ModelViewSet):
     Атрибуты:
         serializer_class (Serializer): Сериализатор для модели Comment.
         lookup_url_kwarg (str): Имя URL-параметра для поиска комментариев.
+        permission_classes (tuple): Кортеж классов разрешений для управления
+        доступом к представлению.
+            По умолчанию используется (IsAuthenticated, IsOwnerOrReadOnly),
+            что означает, что пользователь должен быть аутентифицирован
+            и являться владельцем объекта, чтобы иметь доступ к
+            небезопасным методам.
+
     """
     serializer_class = CommentSerializer
     lookup_url_kwarg = 'comment_id'
+    permission_classes = (IsOwnerOrReadOnly, IsAuthenticated)
 
     def get_queryset(self):
         """
         Определяет QuerySet для получения комментариев,
         связанных с определенным постом.
         """
-        post_pk = self.kwargs.get('post_id')
-        return Comment.objects.filter(post_id=post_pk)
+        self.post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
+        return self.post.comments.all()
 
     def perform_create(self, serializer):
         """
@@ -95,8 +101,9 @@ class CommentViewSet(viewsets.ModelViewSet):
         Аргументы:
             serializer (Serializer): Экземпляр сериализатора.
         """
+        post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
         serializer.save(author=self.request.user,
-                        post_id=self.kwargs.get('post_id'),)
+                        post=post, )
 
     def perform_update(self, serializer):
         """
@@ -105,14 +112,9 @@ class CommentViewSet(viewsets.ModelViewSet):
         Аргументы:
             serializer (Serializer): Экземпляр сериализатора.
 
-        Исключения:
-            PermissionDenied: Если автор комментария не соответствует
-            текущему пользователю.
         """
-        if serializer.instance.author != self.request.user:
-            raise PermissionDenied('Изменение чужого контента запрещено!')
         serializer.save(author=self.request.user,
-                        post_id=self.kwargs.get('post_id'),)
+                        post=self.post, )
 
     def perform_destroy(self, instance):
         """
@@ -121,10 +123,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         Аргументы:
             instance (Model): Экземпляр модели Comment.
 
-        Исключения:
-            PermissionDenied: Если автор комментария не соответствует
-            текущему пользователю.
         """
-        if instance.author != self.request.user:
-            raise PermissionDenied('Удаление чужого контента запрещено!')
+
         instance.delete()
